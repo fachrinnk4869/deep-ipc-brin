@@ -291,6 +291,53 @@ class WHILL_Data(Dataset):
     def __len__(self):
         return len(self.rgb)
 
+    def swap_RGB2BGR(self, matrix):
+        red = matrix[:, :, 0].copy()
+        blue = matrix[:, :, 2].copy()
+        matrix[:, :, 0] = blue
+        matrix[:, :, 2] = red
+        return matrix
+
+    def show_sdc(self, sdc):
+        sdc = sdc.cpu().detach().numpy()
+
+        # buat array untuk nyimpan out gambar
+        imgx2 = np.zeros((sdc.shape[2], sdc.shape[3], 3))
+        # ambil tensor output segmentationnya
+        pred_sdc = sdc[0]
+        inx2 = np.argmax(pred_sdc, axis=0)
+        for cmap in self.config.SEG_CLASSES['colors']:
+            cmap_id = self.config.SEG_CLASSES['colors'].index(cmap)
+            imgx2[np.where(inx2 == cmap_id)] = cmap
+
+        # GANTI ORDER BGR KE RGB, SWAP!
+        imgx2 = self.swap_RGB2BGR(imgx2)
+        cv2.imshow("hehe", imgx2)
+        cv2.waitKey(1)
+
+    def show_seg(self, seg):
+        seg = seg.cpu().detach().numpy()
+        # buat array untuk nyimpan out gambar
+        imgx = np.zeros((seg.shape[1], seg.shape[2], 3))
+        # ambil tensor output segmentationnya
+        pred_seg = seg
+        inx = np.argmax(pred_seg, axis=0)
+        for cmap in self.config.SEG_CLASSES['colors']:
+            cmap_id = self.config.SEG_CLASSES['colors'].index(cmap)
+            if cmap_id == 1:
+                imgx[np.where(inx == cmap_id)] = cmap
+                print("Current cmap:", cmap)
+                print("cmap_id:", cmap_id)
+
+            # Debug which cmap_id corresponds to each region
+                if cmap_id in np.unique(inx):
+                    print(f"Class {cmap_id} exists in inx")
+        print(inx[np.where(inx >= 1)])
+        # GANTI ORDER BGR KE RGB, SWAP!
+        imgx = self.swap_RGB2BGR(imgx)
+        cv2.imshow("yang benerr", imgx)
+        cv2.waitKey(1)
+
     def __getitem__(self, index):
         data = dict()
         # metadata buat testing nantinya
@@ -308,20 +355,27 @@ class WHILL_Data(Dataset):
         seq_loc_xs = self.loc_x[index]
         seq_loc_ys = self.loc_y[index]
         seq_loc_headings = self.loc_heading[index]
-
+        seg_ori = ''
         for i in range(0, self.seq_len):
-            data['rgbs'].append(torch.from_numpy(np.array(crop_matrix(cv2.imread(
-                seq_rgbs[i]), resize=self.config.scale, crop=self.config.crop_roi).transpose(2, 0, 1))))
-            data['segs'].append(torch.from_numpy(np.array(cls2one_hot(crop_matrix(cv2.imread(
-                seq_segs[i]), resize=self.config.scale, crop=self.config.crop_roi), n_class=self.config.n_class))))
-
-            pt_cloud = np.nan_to_num(crop_matrix(np.load(seq_pt_clouds[i])[:, :, 0:3], resize=self.config.scale, crop=self.config.crop_roi).transpose(
+            data['rgbs'].append(torch.from_numpy(np.array(resize_matrix_new(cv2.imread(
+                seq_rgbs[i]), resize=self.config.res_resize).transpose(2, 0, 1))))
+            # data['segs'].append(torch.from_numpy(np.array(cls2one_hot(resize_matrix_new(cv2.imread(
+            #     seq_segs[i]), resize=self.config.res_resize), n_class=self.config.n_class))))
+            data['segs'].append(torch.from_numpy(np.array(cls2one_hot(resize_matrix_new(cv2.imread(
+                seq_segs[i]), resize=self.config.res_resize) + 1, n_class=self.config.n_class, color_to_class=self.config.SEG_CLASSES))))
+            seg_ori = cv2.imread(
+                seq_segs[i])
+            pt_cloud = np.nan_to_num(resize_matrix_new(np.load(seq_pt_clouds[i])[:, :, 0:3], resize=self.config.res_resize).transpose(
                 2, 0, 1), nan=0.0, posinf=39.99999, neginf=0.2)  # min_d, max_d, -max_d, ambil xyz-nya saja 0:3, baca https://www.stereolabs.com/docs/depth-sensing/depth-settings/
             data['pt_cloud_xs'].append(
-                torch.from_numpy(np.array(pt_cloud[0:1, :, :])))
+                # torch.from_numpy(np.array(pt_cloud[0:1, :, :])))
+                torch.from_numpy(np.array(pt_cloud[1:2, :, :])))
             data['pt_cloud_zs'].append(
-                torch.from_numpy(np.array(pt_cloud[2:3, :, :])))
-
+                # torch.from_numpy(np.array(pt_cloud[2:3, :, :])))
+                torch.from_numpy(np.array(pt_cloud[0:1, :, :])))
+        # self.show_seg(data['segs'][-1])
+        # cv2.imshow("seg_ori", seg_ori)
+        # cv2.waitKey(1)
         # current ego robot position dan heading di index 0
         ego_loc_x = seq_loc_xs[0]
         ego_loc_y = seq_loc_ys[0]
@@ -378,6 +432,12 @@ def swap_RGB2BGR(matrix):
     return matrix
 
 
+def resize_matrix_new(image, resize):
+    resized_image = cv2.resize(
+        image, (resize[1], resize[0]), interpolation=cv2.INTER_NEAREST)
+    return resized_image
+
+
 def crop_matrix(image, resize=1, D3=True, crop=[512, 1024]):
 
     # print(image.shape)
@@ -400,17 +460,50 @@ def crop_matrix(image, resize=1, D3=True, crop=[512, 1024]):
     return resized_image
 
 
-def cls2one_hot(ss_gt, n_class):
-    # inputnya adalah HWC baca cv2 secara biasanya, ambil salah satu channel saja
-    ss_gt = np.transpose(ss_gt, (2, 0, 1))  # GANTI CHANNEL FIRST
-    ss_gt = ss_gt[:1, :, :].reshape(ss_gt.shape[1], ss_gt.shape[2])
-    result = (np.arange(n_class) == ss_gt[..., None]).astype(
-        int)  # jumlah class di cityscape pallete
-    result = np.transpose(result, (2, 0, 1))   # (H, W, C) --> (C, H, W)
-    # np.save("00009_ss.npy", result) #SUDAH BENAR!
-    # print(result)
-    # print(result.shape)
-    return result
+# def cls2one_hot(ss_gt, n_class):
+#     # inputnya adalah HWC baca cv2 secara biasanya, ambil salah satu channel saja
+#     print(ss_gt.shape)
+#     ss_gt = np.transpose(ss_gt, (2, 0, 1))  # GANTI CHANNEL FIRST
+#     ss_gt = ss_gt[:1, :, :].reshape(ss_gt.shape[1], ss_gt.shape[2])
+#     result = (np.arange(n_class) == ss_gt[..., None]).astype(
+#         int)  # jumlah class di cityscape pallete
+#     result = np.transpose(result, (2, 0, 1))   # (H, W, C) --> (C, H, W)
+#     # np.save("00009_ss.npy", result) #SUDAH BENAR!
+#     # print(result)
+#     # imgx2 = np.clip(result[0], 0, 255).astype(np.uint8)
+#     # cv2.imshow("one hot", np.array(imgx2))
+#     # cv2.waitKey(1)
+#     print(result.shape)
+#     return result
+
+def cls2one_hot(ss_gt, n_class, color_to_class):
+    """
+    Converts a semantic segmentation RGB ground truth map into one-hot encoding.
+
+    Args:
+        ss_gt (numpy.ndarray): RGB ground truth map of shape (H, W, 3).
+        n_class (int): Number of classes.
+        color_to_class (dict): Mapping of RGB triplets to class IDs.
+
+    Returns:
+        numpy.ndarray: One-hot encoded ground truth of shape (C, H, W), where C = n_class.
+    """
+    H, W, _ = ss_gt.shape
+
+    # Initialize a class ID array with zeros
+    class_ids = np.zeros((H, W), dtype=int)
+
+    # Map each RGB color in the input to its corresponding class ID
+    for class_id, color in enumerate(color_to_class['colors']):
+        mask = np.all(ss_gt == color, axis=-1)  # Match the full RGB triplet
+        class_ids[mask] = class_id
+
+    # Convert the class IDs to one-hot encoding
+    one_hot = (np.arange(n_class) == class_ids[..., None]).astype(
+        int)  # Shape: (H, W, C)
+    one_hot = np.transpose(one_hot, (2, 0, 1))  # Convert to (C, H, W) format
+
+    return one_hot
 
 
 def transform_2d_points(xyz, r1, t1_x, t1_y, r2, t2_x, t2_y):

@@ -8,7 +8,7 @@ class GlobalConfig:
     logdir = 'log/'+model+'_mix_mix'
     init_stop_counter = 30
 
-    batch_size = 8
+    batch_size = 4
     coverage_area = 24  # untuk top view SC, 24m kedepan, kiri, dan kanan
     rp1_close = 4  # ganti rp jika mendekati ...meter
     bearing_bias = 7.5  # dalam derajat, pastikan sama dengan yang ada di plot_wprp.py
@@ -16,13 +16,13 @@ class GlobalConfig:
     data_rate = 4  # 1 detik ada berapa data?
 
     # parameter untuk MGN
-    MGN = True
+    MGN = False
     loss_weights = [1, 1, 1, 1]
     lw_alpha = 1.5
     bottleneck = [335, 675]  # cek dengan check_arch.py
 
     # Data
-    seq_len = 3  # jumlah input seq
+    seq_len = 1  # jumlah input seq
     pred_len = 3  # future waypoints predicted
     logdir = logdir+"_seq"+str(seq_len)  # update direktori name
 
@@ -46,7 +46,8 @@ class GlobalConfig:
     #     test_data.append(os.path.join(root_dir+'/test_routes', weather))
 
     crop_roi = [512, 1024]  # HxW
-    scale = 2  # buat resizinig diawal load data
+    scale = 1  # buat resizinig diawal load data
+    res_resize = [256, 384]
 
     lr = 1e-4  # learning rate #pakai AdamW
     weight_decay = 1e-3
@@ -89,11 +90,11 @@ class GlobalConfig:
             70, 130, 180], [220, 20, 60],
             [255, 0, 0], [0, 0, 142], [0, 0, 70], [0, 60, 100],
             [0, 80, 100], [0, 0, 230], [119, 11, 32]],
-        'classes': ['None', 'road', 'sidewalk', 'building', 'wall',
-                            'fence', 'pole', 'traffic light', 'traffic sign',
-                            'vegetation', 'terrain', 'sky', 'person',
-                            'rider', 'car', 'truck', 'bus',
-                            'train', 'motorcycle', 'bicycle']
+        'classes': ['not_class', 'road', 'sidewalk', 'building', 'wall',
+                    'fence', 'pole', 'traffic light', 'traffic sign',
+                    'vegetation', 'terrain', 'sky', 'person',
+                    'rider', 'car', 'truck', 'bus',
+                    'train', 'motorcycle', 'bicycle']
     }
     n_class = len(SEG_CLASSES['colors'])
 
