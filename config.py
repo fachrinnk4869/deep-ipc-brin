@@ -48,6 +48,8 @@ class GlobalConfig:
     crop_roi = [512, 1024]  # HxW
     scale = 1  # buat resizinig diawal load data
     res_resize = [256, 384]
+    # res_resize = [512, 768]
+    # res_resize = [256, 512]
 
     lr = 1e-4  # learning rate #pakai AdamW
     weight_decay = 1e-3

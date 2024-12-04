@@ -122,6 +122,7 @@ def train(data_loader, model, config, writer, cur_epoch, device, optimizer, para
         pt_cloud_xs = []
         pt_cloud_zs = []
         for i in range(0, config.seq_len):  # append data untuk input sequence
+            # print(data['rgbs'][i].to(device, dtype=torch.float).shape)
             rgbs.append(data['rgbs'][i].to(device, dtype=torch.float))
             segs.append(data['segs'][i].to(device, dtype=torch.float))
             # check_gt_seg(config, segs[-1])
@@ -141,6 +142,7 @@ def train(data_loader, model, config, writer, cur_epoch, device, optimizer, para
         gt_throttle = data['throttle'].to(device, dtype=torch.float)
 
         # forward pass
+        print(rgbs[0].shape)
         pred_segs, pred_wp, steering, throttle, _ = model(
             rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, gt_velocity)  # , seg_fronts[-1])
         # check_gt_seg(config, sdcs[-1])

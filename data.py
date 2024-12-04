@@ -362,9 +362,11 @@ class WHILL_Data(Dataset):
             # data['segs'].append(torch.from_numpy(np.array(cls2one_hot(resize_matrix_new(cv2.imread(
             #     seq_segs[i]), resize=self.config.res_resize), n_class=self.config.n_class))))
             data['segs'].append(torch.from_numpy(np.array(cls2one_hot(resize_matrix_new(cv2.imread(
-                seq_segs[i]), resize=self.config.res_resize) + 1, n_class=self.config.n_class, color_to_class=self.config.SEG_CLASSES))))
-            seg_ori = cv2.imread(
-                seq_segs[i])
+                seq_segs[i]) + 1, resize=self.config.res_resize), n_class=self.config.n_class))))
+            data_seg_pre = data['segs'][-1]
+            with open('segs_file.txt', 'w') as file:
+                for row in data_seg_pre:
+                    file.write(' '.join(map(str, row)) + '\n')
             pt_cloud = np.nan_to_num(resize_matrix_new(np.load(seq_pt_clouds[i])[:, :, 0:3], resize=self.config.res_resize).transpose(
                 2, 0, 1), nan=0.0, posinf=39.99999, neginf=0.2)  # min_d, max_d, -max_d, ambil xyz-nya saja 0:3, baca https://www.stereolabs.com/docs/depth-sensing/depth-settings/
             data['pt_cloud_xs'].append(
@@ -395,7 +397,7 @@ class WHILL_Data(Dataset):
         lat_robot = self.lat[index]
         lon_robot = self.lon[index]
         R_matrix = np.array([[np.cos(bearing_robot), -np.sin(bearing_robot)],
-                            [np.sin(bearing_robot),  np.cos(bearing_robot)]])
+                             [np.sin(bearing_robot),  np.cos(bearing_robot)]])
         dLat1_m = (self.rp1_lat[index]-lat_robot) * 40008000 / 360  # 111320 #Y
         dLon1_m = (self.rp1_lon[index]-lon_robot) * \
             40075000 * np.cos(np.radians(lat_robot)) / 360  # X
@@ -460,50 +462,50 @@ def crop_matrix(image, resize=1, D3=True, crop=[512, 1024]):
     return resized_image
 
 
-# def cls2one_hot(ss_gt, n_class):
-#     # inputnya adalah HWC baca cv2 secara biasanya, ambil salah satu channel saja
-#     print(ss_gt.shape)
-#     ss_gt = np.transpose(ss_gt, (2, 0, 1))  # GANTI CHANNEL FIRST
-#     ss_gt = ss_gt[:1, :, :].reshape(ss_gt.shape[1], ss_gt.shape[2])
-#     result = (np.arange(n_class) == ss_gt[..., None]).astype(
-#         int)  # jumlah class di cityscape pallete
-#     result = np.transpose(result, (2, 0, 1))   # (H, W, C) --> (C, H, W)
-#     # np.save("00009_ss.npy", result) #SUDAH BENAR!
-#     # print(result)
-#     # imgx2 = np.clip(result[0], 0, 255).astype(np.uint8)
-#     # cv2.imshow("one hot", np.array(imgx2))
-#     # cv2.waitKey(1)
-#     print(result.shape)
-#     return result
+def cls2one_hot(ss_gt, n_class):
+    # inputnya adalah HWC baca cv2 secara biasanya, ambil salah satu channel saja
+    # print(ss_gt.shape)
+    ss_gt = np.transpose(ss_gt, (2, 0, 1))  # GANTI CHANNEL FIRST
+    ss_gt = ss_gt[:1, :, :].reshape(ss_gt.shape[1], ss_gt.shape[2])
+    result = (np.arange(n_class) == ss_gt[..., None]).astype(
+        int)  # jumlah class di cityscape pallete
+    result = np.transpose(result, (2, 0, 1))   # (H, W, C) --> (C, H, W)
+    # np.save("00009_ss.npy", result) #SUDAH BENAR!
+    # print(result)
+    # imgx2 = np.clip(result[0], 0, 255).astype(np.uint8)
+    # cv2.imshow("one hot", np.array(imgx2))
+    # cv2.waitKey(1)
+    # print(result.shape)
+    return result
 
-def cls2one_hot(ss_gt, n_class, color_to_class):
-    """
-    Converts a semantic segmentation RGB ground truth map into one-hot encoding.
+# def cls2one_hot(ss_gt, n_class, color_to_class):
+#     """
+#     Converts a semantic segmentation RGB ground truth map into one-hot encoding.
 
-    Args:
-        ss_gt (numpy.ndarray): RGB ground truth map of shape (H, W, 3).
-        n_class (int): Number of classes.
-        color_to_class (dict): Mapping of RGB triplets to class IDs.
+#     Args:
+#         ss_gt (numpy.ndarray): RGB ground truth map of shape (H, W, 3).
+#         n_class (int): Number of classes.
+#         color_to_class (dict): Mapping of RGB triplets to class IDs.
 
-    Returns:
-        numpy.ndarray: One-hot encoded ground truth of shape (C, H, W), where C = n_class.
-    """
-    H, W, _ = ss_gt.shape
+#     Returns:
+#         numpy.ndarray: One-hot encoded ground truth of shape (C, H, W), where C = n_class.
+#     """
+#     H, W, _ = ss_gt.shape
 
-    # Initialize a class ID array with zeros
-    class_ids = np.zeros((H, W), dtype=int)
+#     # Initialize a class ID array with zeros
+#     class_ids = np.zeros((H, W), dtype=int)
 
-    # Map each RGB color in the input to its corresponding class ID
-    for class_id, color in enumerate(color_to_class['colors']):
-        mask = np.all(ss_gt == color, axis=-1)  # Match the full RGB triplet
-        class_ids[mask] = class_id
+#     # Map each RGB color in the input to its corresponding class ID
+#     for class_id, color in enumerate(color_to_class['colors']):
+#         mask = np.all(ss_gt == color, axis=-1)  # Match the full RGB triplet
+#         class_ids[mask] = class_id
 
-    # Convert the class IDs to one-hot encoding
-    one_hot = (np.arange(n_class) == class_ids[..., None]).astype(
-        int)  # Shape: (H, W, C)
-    one_hot = np.transpose(one_hot, (2, 0, 1))  # Convert to (C, H, W) format
+#     # Convert the class IDs to one-hot encoding
+#     one_hot = (np.arange(n_class) == class_ids[..., None]).astype(
+#         int)  # Shape: (H, W, C)
+#     one_hot = np.transpose(one_hot, (2, 0, 1))  # Convert to (C, H, W) format
 
-    return one_hot
+#     return one_hot
 
 
 def transform_2d_points(xyz, r1, t1_x, t1_y, r2, t2_x, t2_y):

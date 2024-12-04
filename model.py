@@ -175,12 +175,17 @@ class xr14(nn.Module):
     def forward(self, rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, velo_in):
         # ------------------------------------------------------------------------------------------------
         # bagian downsampling
+        # print("shape image:", rgbs[0].shape)
+        # print("shape xs:", pt_cloud_xs[0].shape)
+        # print("shape zs:", pt_cloud_zs[0].shape)
+
         RGB_features_sum = 0
         SC_features_sum = 0
         segs_f = []
         sdcs = []
         for i in range(self.config.seq_len):  # loop semua input dalam buffer
-            in_rgb = self.rgb_normalizer(rgbs[i])
+            # in_rgb = self.rgb_normalizer(rgbs[i])
+            in_rgb = rgbs[i]
             RGB_features0 = self.RGB_encoder.features[0](in_rgb)
             RGB_features1 = self.RGB_encoder.features[1](RGB_features0)
             RGB_features2 = self.RGB_encoder.features[2](RGB_features1)
@@ -192,6 +197,7 @@ class xr14(nn.Module):
             RGB_features8 = self.RGB_encoder.features[8](RGB_features7)
             RGB_features_sum += RGB_features8
             # bagian upsampling
+            print(RGB_features8.shape, RGB_features5.shape)
             ss_f_3 = self.conv3_ss_f(
                 cat([self.up(RGB_features8), RGB_features5], dim=1))
             ss_f_2 = self.conv2_ss_f(
@@ -206,6 +212,7 @@ class xr14(nn.Module):
             # buat semantic cloud
             top_view_sc = self.gen_top_view_sc_ptcloud(
                 pt_cloud_xs[i], pt_cloud_zs[i], ss_f)
+            print('top view sc:', top_view_sc.shape)
             sdcs.append(top_view_sc)
             # bagian downsampling
             SC_features0 = self.SC_encoder.features[0](top_view_sc)
@@ -228,8 +235,13 @@ class xr14(nn.Module):
             self.gpu_device, dtype=hx.dtype)
         # predict delta wp
         out_wp = list()
+        # print("shape xy:", xy.shape)
+        # print("shape rp1:", rp1.shape)
+        # print("shape rp2:", rp2.shape)
+        # print("shape velo_in:", velo_in.shape)
         for _ in range(self.config.pred_len):
             ins = torch.cat([xy, rp1, rp2, velo_in], dim=1)
+            print(ins.shape)
             hx = self.gru(ins, hx)
             d_xy = self.pred_dwp(hx)
             xy = xy + d_xy
@@ -243,7 +255,14 @@ class xr14(nn.Module):
         control_pred = self.controller(hx)
         steering = control_pred[:, 0] * 2 - 1.  # convert from [0,1] to [-1,1]
         throttle = control_pred[:, 1] * self.config.max_throttle
-
+        # print(
+        #     torch.stack(segs_f).shape,
+        #     torch.tensor(pred_wp).shape,
+        #     torch.tensor(steering).shape,
+        #     torch.tensor(throttle).shape,
+        #     # sdcs.shape
+        #     torch.stack(sdcs).shape
+        # )
         return segs_f, pred_wp, steering, throttle, sdcs
 
     def swap_RGB2BGR(self, matrix):
@@ -280,7 +299,7 @@ class xr14(nn.Module):
         inx = np.argmax(pred_seg, axis=0)
         for cmap in self.config.SEG_CLASSES['colors']:
             cmap_id = self.config.SEG_CLASSES['colors'].index(cmap)
-            print(cmap_id)
+            # print(cmap_id)
             imgx[np.where(inx == cmap_id)] = cmap
 
         # GANTI ORDER BGR KE RGB, SWAP!
@@ -332,10 +351,10 @@ class xr14(nn.Module):
         idx_xz = bool_xz.nonzero().squeeze()
 
         # stack n x z cls dan plot
-        # print(cloud_data_n.shape)
-        # print(label_img.ravel().shape)
-        # print(cloud_data_z.shape)
-        # print(cloud_data_x.shape)
+        print(cloud_data_n.shape)
+        print(label_img.ravel().shape)
+        print(cloud_data_z.shape)
+        print(cloud_data_x.shape)
         coorx = torch.stack(
             [cloud_data_n, label_img.ravel(), cloud_data_z, cloud_data_x])
         # tensor harus long supaya bisa digunakan sebagai index
