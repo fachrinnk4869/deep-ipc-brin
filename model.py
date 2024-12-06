@@ -1,6 +1,7 @@
 from collections import deque
 import sys
 from matplotlib import pyplot as plt
+from torchinfo import summary
 import numpy as np
 from torch import torch, cat, nn
 # import torch.nn.functional as F
@@ -108,25 +109,40 @@ class xr14(nn.Module):
         # RGB, jika inputnya sequence, maka jumlah input channel juga harus menyesuaikan
         self.rgb_normalizer = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        self.RGB_encoder = models.efficientnet_b3(
-            pretrained=True)  # efficientnet_b4
+        # self.RGB_encoder = models.efficientnet_b3(
+        # pretrained=True)  # efficientnet_b4
+        self.image_size = self.config.res_resize[0]
+        self.RGB_encoder = models.vit_b_16(pretrained=True,
+                                           progress=True, image_size=self.image_size)  # efficientnet_b4
+        # summary(self.RGB_encoder, input_size=(
+        #     3, 256, 256), device="cpu")
         # cara paling gampang untuk menghilangkan fc layer yang tidak diperlukan
         self.RGB_encoder.classifier = nn.Sequential()
         # cara paling gampang untuk menghilangkan fc layer yang tidak diperlukan
         self.RGB_encoder.avgpool = nn.Sequential()
         # SS
+        # self.up = nn.Upsample(
+        #     scale_factor=2, mode='bilinear', align_corners=True)
+        # self.conv3_ss_f = ConvBlock(channel=[
+        #                             config.n_fmap_b3[4][-1]+config.n_fmap_b3[3][-1], config.n_fmap_b3[3][-1]])  # , up=True)
+        # self.conv2_ss_f = ConvBlock(channel=[
+        #                             config.n_fmap_b3[3][-1]+config.n_fmap_b3[2][-1], config.n_fmap_b3[2][-1]])  # , up=True)
+        # self.conv1_ss_f = ConvBlock(channel=[
+        #                             config.n_fmap_b3[2][-1]+config.n_fmap_b3[1][-1], config.n_fmap_b3[1][-1]])  # , up=True)
+        # self.conv0_ss_f = ConvBlock(channel=[
+        #                             config.n_fmap_b3[1][-1]+config.n_fmap_b3[0][-1], config.n_fmap_b3[0][0]])  # , up=True)
+        # self.final_ss_f = ConvBlock(
+        #     channel=[config.n_fmap_b3[0][0], config.n_class], final=True)  # , up=False)
+        # Define upsampling layers
+        self.conv3_ss_f = nn.Conv2d(768, 128, kernel_size=3, padding=1)
+        self.conv2_ss_f = nn.Conv2d(128, 64, kernel_size=3, padding=1)
+        self.conv1_ss_f = nn.Conv2d(64, 32, kernel_size=3, padding=1)
+        self.conv0_ss_f = nn.Conv2d(32, 16, kernel_size=3, padding=1)
+        # Final segmentation output
+        self.final_ss_f = nn.Conv2d(16, 1, kernel_size=1)
         self.up = nn.Upsample(
-            scale_factor=2, mode='bilinear', align_corners=True)
-        self.conv3_ss_f = ConvBlock(channel=[
-                                    config.n_fmap_b3[4][-1]+config.n_fmap_b3[3][-1], config.n_fmap_b3[3][-1]])  # , up=True)
-        self.conv2_ss_f = ConvBlock(channel=[
-                                    config.n_fmap_b3[3][-1]+config.n_fmap_b3[2][-1], config.n_fmap_b3[2][-1]])  # , up=True)
-        self.conv1_ss_f = ConvBlock(channel=[
-                                    config.n_fmap_b3[2][-1]+config.n_fmap_b3[1][-1], config.n_fmap_b3[1][-1]])  # , up=True)
-        self.conv0_ss_f = ConvBlock(channel=[
-                                    config.n_fmap_b3[1][-1]+config.n_fmap_b3[0][-1], config.n_fmap_b3[0][0]])  # , up=True)
-        self.final_ss_f = ConvBlock(
-            channel=[config.n_fmap_b3[0][0], config.n_class], final=True)  # , up=False)
+            scale_factor=2, mode='bilinear', align_corners=False)
+
         # ------------------------------------------------------------------------------------------------
 
         # untuk semantic cloud generator
@@ -170,8 +186,39 @@ class xr14(nn.Module):
             nn.Linear(config.n_fmap_b3[3][-1], 2),  # str dan thrt
             nn.ReLU()
         )
+        self.patch_size = 16
+        self.num_layers = 12
+        self.num_heads = 12
+        self.hidden_dim = 768
+        self.mlp_dim = 3072
+        self.class_token = nn.Parameter(torch.zeros(1, 1, self.hidden_dim))
 
+    def process_input(self, x: torch.Tensor) -> torch.Tensor:
+        n, c, h, w = x.shape
+        p = self.patch_size
+        torch._assert(h == self.image_size,
+                      f"Wrong image height! Expected {self.image_size} but got {h}!")
+        torch._assert(w == self.image_size,
+                      f"Wrong image width! Expected {self.image_size} but got {w}!")
+        n_h = h // p
+        n_w = w // p
+
+        # (n, c, h, w) -> (n, hidden_dim, n_h, n_w)
+        x = nn.Conv2d(
+            in_channels=3, out_channels=self.hidden_dim, kernel_size=self.patch_size, stride=self.patch_size
+        )(x)
+        # (n, hidden_dim, n_h, n_w) -> (n, hidden_dim, (n_h * n_w))
+        x = x.reshape(n, self.hidden_dim, n_h * n_w)
+
+        # (n, hidden_dim, (n_h * n_w)) -> (n, (n_h * n_w), hidden_dim)
+        # The self attention layer expects inputs in the format (N, S, E)
+        # where S is the source sequence length, N is the batch size, E is the
+        # embedding dimension
+        x = x.permute(0, 2, 1)
+
+        return x
     # , gt_ss):
+
     def forward(self, rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, velo_in):
         # ------------------------------------------------------------------------------------------------
         # bagian downsampling
@@ -186,26 +233,23 @@ class xr14(nn.Module):
         for i in range(self.config.seq_len):  # loop semua input dalam buffer
             # in_rgb = self.rgb_normalizer(rgbs[i])
             in_rgb = rgbs[i]
-            RGB_features0 = self.RGB_encoder.features[0](in_rgb)
-            RGB_features1 = self.RGB_encoder.features[1](RGB_features0)
-            RGB_features2 = self.RGB_encoder.features[2](RGB_features1)
-            RGB_features3 = self.RGB_encoder.features[3](RGB_features2)
-            RGB_features4 = self.RGB_encoder.features[4](RGB_features3)
-            RGB_features5 = self.RGB_encoder.features[5](RGB_features4)
-            RGB_features6 = self.RGB_encoder.features[6](RGB_features5)
-            RGB_features7 = self.RGB_encoder.features[7](RGB_features6)
-            RGB_features8 = self.RGB_encoder.features[8](RGB_features7)
-            RGB_features_sum += RGB_features8
+            RGB_features0 = self.process_input(in_rgb)
+            n = RGB_features0.shape[0]
+
+        # Expand the class token to the full batch
+            batch_class_token = self.class_token.expand(n, -1, -1)
+            RGB_features0 = torch.cat(
+                [batch_class_token, RGB_features0], dim=1)
+            RGB_features0 = self.RGB_encoder.encoder(RGB_features0)
+            print(RGB_features0.shape)
+            RGB_features_sum += RGB_features0
             # bagian upsampling
-            print(RGB_features8.shape, RGB_features5.shape)
-            ss_f_3 = self.conv3_ss_f(
-                cat([self.up(RGB_features8), RGB_features5], dim=1))
-            ss_f_2 = self.conv2_ss_f(
-                cat([self.up(ss_f_3), RGB_features3], dim=1))
-            ss_f_1 = self.conv1_ss_f(
-                cat([self.up(ss_f_2), RGB_features2], dim=1))
-            ss_f_0 = self.conv0_ss_f(
-                cat([self.up(ss_f_1), RGB_features1], dim=1))
+            # print(RGB_features8.shape, RGB_features5.shape)
+            # Perform upsampling
+            ss_f_3 = self.conv3_ss_f(RGB_features0)
+            ss_f_2 = self.conv2_ss_f(self.up(ss_f_3))
+            ss_f_1 = self.conv1_ss_f(self.up(ss_f_2))
+            ss_f_0 = self.conv0_ss_f(self.up(ss_f_1))
             ss_f = self.final_ss_f(self.up(ss_f_0))
             segs_f.append(ss_f)
             # ------------------------------------------------------------------------------------------------

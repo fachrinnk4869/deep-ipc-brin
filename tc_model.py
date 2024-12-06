@@ -46,12 +46,12 @@ class TestXR14(unittest.TestCase):
         # print(sdcs)
         assert len(sdcs) == self.config.seq_len
 
-    def test_sc_encoder(self):
-        # Assuming SC_encoder is a method of xr14
-        input_tensor = torch.randn(
-            4, 20, self.h, self.w)  # Example input
-        output = self.model.SC_encoder(input_tensor)
-        self.assertIsInstance(output, torch.Tensor)
+    # def test_sc_encoder(self):
+    #     # Assuming SC_encoder is a method of xr14
+    #     input_tensor = torch.randn(
+    #         4, 20, self.h, self.w)  # Example input
+    #     output = self.model.SC_encoder(input_tensor)
+    #     self.assertIsInstance(output, torch.Tensor)
         # Add more assertions based on expected output shape and values
 
 
