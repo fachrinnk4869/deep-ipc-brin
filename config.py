@@ -106,9 +106,13 @@ class GlobalConfig:
     n_fmap_b1 = [[32, 16], [24], [40], [80, 112],
                  [192, 320, 1280]]  # sama dengan b0
     n_fmap_b2 = [[32, 16], [24], [48], [88, 120], [208, 352, 1408]]
+    n_vit_b16 = [[32, 24], [32], [64], [88, 128], [208, 352, 768]]
     # lihat underdevelopment/efficientnet.py
     n_fmap_b3 = [[40, 24], [32], [48], [96, 136], [232, 384, 1536]]
     n_fmap_b4 = [[48, 24], [32], [56], [112, 160], [272, 448, 1792]]
+    n_decoder = n_vit_b16
+    # name_model = 'xr14'
+    name_model = 'vit_bb'
     # jangan lupa untuk mengganti model torchvision di init model.py
 
     def __init__(self, **kwargs):

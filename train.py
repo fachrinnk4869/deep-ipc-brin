@@ -1,7 +1,7 @@
 from torch.utils.tensorboard import SummaryWriter
 from config import GlobalConfig
 from data import WHILL_Data, swap_RGB2BGR
-from model import xr14
+from model import get_model
 import shutil
 import pandas as pd
 import os
@@ -371,7 +371,7 @@ def main():
 
     # IMPORT MODEL UNTUK DITRAIN
     print("IMPORT ARSITEKTUR DL DAN COMPILE")
-    model = xr14(config, device).to(device, dtype=torch.float)
+    model = get_model(config, device).to(device, dtype=torch.float)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print('Total trainable parameters: ', params)

@@ -25,33 +25,37 @@ class TestXR14(unittest.TestCase):
         # Add more assertions based on expected output shape and values
 
     def test_forward(self):
-        rgbs = [torch.randn(self.config.batch_size, 3, self.h, self.w).to(self.device)
+        batch_size = 1
+        rgbs = [torch.randn(batch_size, 3, self.h, self.w).to(self.device)
                 for _ in range(self.config.seq_len)]
-        pt_cloud_xs = [torch.randn(self.config.batch_size, self.h, self.w).to(self.device)
+        pt_cloud_xs = [torch.randn(batch_size, self.h, self.w).to(self.device)
                        for _ in range(self.config.seq_len)]
-        pt_cloud_zs = [torch.randn(self.config.batch_size, self.h, self.w).to(self.device)
+        pt_cloud_zs = [torch.randn(batch_size, self.h, self.w).to(self.device)
                        for _ in range(self.config.seq_len)]
-        rp1 = torch.randn(self.config.batch_size, 2).to(self.device)
-        rp2 = torch.randn(self.config.batch_size, 2).to(self.device)
-        velo_in = torch.randn(self.config.batch_size, 2).to(self.device)
+        rp1 = torch.randn(batch_size, 2).to(self.device)
+        rp2 = torch.randn(batch_size, 2).to(self.device)
+        velo_in = torch.randn(batch_size, 2).to(self.device)
 
         segs_f, pred_wp, steering, throttle, sdcs = self.model(
             rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, velo_in)
 
         assert len(segs_f) == self.config.seq_len
+        # is contigous
+        for seg in segs_f:
+            assert seg.is_contiguous()
         assert pred_wp.shape == (
-            self.config.batch_size, self.config.pred_len, 2)
+            batch_size, self.config.pred_len, 2)
         assert isinstance(steering, torch.Tensor)
         assert isinstance(throttle, torch.Tensor)
         # print(sdcs)
         assert len(sdcs) == self.config.seq_len
 
-    # def test_sc_encoder(self):
-    #     # Assuming SC_encoder is a method of xr14
-    #     input_tensor = torch.randn(
-    #         4, 20, self.h, self.w)  # Example input
-    #     output = self.model.SC_encoder(input_tensor)
-    #     self.assertIsInstance(output, torch.Tensor)
+    def test_sc_encoder(self):
+        # Assuming SC_encoder is a method of xr14
+        input_tensor = torch.randn(
+            4, 20, self.h, self.w)  # Example input
+        output = self.model.SC_encoder(input_tensor)
+        self.assertIsInstance(output, torch.Tensor)
         # Add more assertions based on expected output shape and values
 
 

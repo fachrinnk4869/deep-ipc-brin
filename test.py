@@ -1,7 +1,7 @@
 # pakai config.py yang dicopykan ke log
 from log.xr14_mix_mix_seq1.config import GlobalConfig
 from data import WHILL_Data, swap_RGB2BGR
-from model import xr14
+from model import get_model
 import pandas as pd
 import os
 from tqdm import tqdm
@@ -366,7 +366,7 @@ device = torch.device("cpu")
 
 # IMPORT MODEL dan load bobot
 print("IMPORT ARSITEKTUR DL DAN COMPILE")
-model = xr14(config, device).to(device, dtype=torch.float)
+model = get_model(config, device).to(device, dtype=torch.float)
 model.load_state_dict(torch.load(
     os.path.join(config.logdir, 'best_model.pth')))
 
