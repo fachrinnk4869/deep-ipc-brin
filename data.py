@@ -44,7 +44,6 @@ class WHILL_Data(Dataset):
             sub_root = os.path.join(data_root, condition)
             preload_file = os.path.join(sub_root, 'xr14_seq'+str(self.seq_len)+'_pred'+str(
                 self.pred_len)+'_rp1'+str(self.rp1_close)+'_maf'+str(self.config.n_buffer*self.data_rate)+'.npy')
-
             # dump to npy if no preload
             if not os.path.exists(preload_file):
                 preload_condition = []
@@ -94,7 +93,7 @@ class WHILL_Data(Dataset):
                     # buat MAF mean avg filter
                     sin_angle_buff = deque()
                     if self.config.n_buffer != 0:
-                        with open(route_dir+"/meta/"+files[0][:-3]+"yaml", 'r') as first_metafile:
+                        with open(route_dir+"/meta/"+files[0][:-3]+"yml", 'r') as first_metafile:
                             first_meta = yaml.load(first_metafile)
                         # -1 karena nanti akan diappend dulu dengan data baru
                         for _ in range(0, self.config.n_buffer*self.data_rate-1):
@@ -132,7 +131,7 @@ class WHILL_Data(Dataset):
                         preload_filename.append(filename)
 
                         # ambil local loc, heading, vehicular controls, gps loc, dan bearing pada seq terakhir saja (current)
-                        with open(route_dir+"/meta/"+filename[:-3]+"yaml", "r") as read_meta_current:
+                        with open(route_dir+"/meta/"+filename[:-3]+"yml", "r") as read_meta_current:
                             meta_current = yaml.full_load(read_meta_current)
                         loc_xs.append(meta_current['local_position_xyz'][0])
                         loc_ys.append(meta_current['local_position_xyz'][1])
@@ -225,7 +224,7 @@ class WHILL_Data(Dataset):
                             filenamef = files[(
                                 i+self.seq_len-1) + (k*self.data_rate)]
                             # meta
-                            with open(route_dir+"/meta/"+filenamef[:-3]+"yaml", "r") as read_meta_future:
+                            with open(route_dir+"/meta/"+filenamef[:-3]+"yml", "r") as read_meta_future:
                                 meta_future = yaml.full_load(read_meta_future)
                             loc_xs.append(
                                 meta_future['local_position_xyz'][0])
@@ -312,7 +311,7 @@ class WHILL_Data(Dataset):
 
         # GANTI ORDER BGR KE RGB, SWAP!
         imgx2 = self.swap_RGB2BGR(imgx2)
-        cv2.imshow("hehe", imgx2)
+        cv2.imshow("hehe", imgx2.astype(np.uint8))
         cv2.waitKey(1)
 
     def show_seg(self, seg):
@@ -363,10 +362,10 @@ class WHILL_Data(Dataset):
             #     seq_segs[i]), resize=self.config.res_resize), n_class=self.config.n_class))))
             data['segs'].append(torch.from_numpy(np.array(cls2one_hot(resize_matrix_new(cv2.imread(
                 seq_segs[i]) + 1, resize=self.config.res_resize), n_class=self.config.n_class))))
-            data_seg_pre = data['segs'][-1]
-            with open('segs_file.txt', 'w') as file:
-                for row in data_seg_pre:
-                    file.write(' '.join(map(str, row)) + '\n')
+            # data_seg_pre = data['segs'][-1]
+            # with open('segs_file.txt', 'w') as file:
+            #     for row in data_seg_pre:
+            #         file.write(' '.join(map(str, row)) + '\n')
             pt_cloud = np.nan_to_num(resize_matrix_new(np.load(seq_pt_clouds[i])[:, :, 0:3], resize=self.config.res_resize).transpose(
                 2, 0, 1), nan=0.0, posinf=39.99999, neginf=0.2)  # min_d, max_d, -max_d, ambil xyz-nya saja 0:3, baca https://www.stereolabs.com/docs/depth-sensing/depth-settings/
             data['pt_cloud_xs'].append(

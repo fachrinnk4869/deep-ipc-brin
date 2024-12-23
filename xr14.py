@@ -1,18 +1,16 @@
 from collections import deque
 import sys
-from matplotlib import pyplot as plt
+import cv2
 import numpy as np
 from torch import torch, cat, nn
 # import torch.nn.functional as F
 import torchvision.models as models
 import torchvision.transforms as transforms
-import cv2
+
 
 # FUNGSI INISIALISASI WEIGHTS MODEL
 # baca https://pytorch.org/docs/stable/nn.init.html
 # kaiming he
-
-
 def kaiming_init_layer(layer):
     nn.init.kaiming_normal_(layer.weight, nonlinearity='relu')
     # layer.bias.data.fill_(0.01)
@@ -132,8 +130,8 @@ class xr14(nn.Module):
         # untuk semantic cloud generator
         self.cover_area = config.coverage_area
         self.n_class = config.n_class
-        self.h, self.w = int(
-            config.res_resize[0]), int(config.res_resize[1])
+        # self.h, self.w = int(config.crop_roi[0]/config.scale), int(config.crop_roi[1]/config.scale)
+        self.h, self.w = config.res_resize[0], config.res_resize[1]
         # SC
         self.SC_encoder = models.efficientnet_b1(
             pretrained=False)  # efficientnet_b0
@@ -175,17 +173,13 @@ class xr14(nn.Module):
     def forward(self, rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, velo_in):
         # ------------------------------------------------------------------------------------------------
         # bagian downsampling
-        # print("shape image:", rgbs[0].shape)
-        # print("shape xs:", pt_cloud_xs[0].shape)
-        # print("shape zs:", pt_cloud_zs[0].shape)
-
         RGB_features_sum = 0
         SC_features_sum = 0
         segs_f = []
         sdcs = []
         for i in range(self.config.seq_len):  # loop semua input dalam buffer
-            # in_rgb = self.rgb_normalizer(rgbs[i])
-            in_rgb = rgbs[i]
+            in_rgb = self.rgb_normalizer(rgbs[i])
+            # print(in_rgb.shape)
             RGB_features0 = self.RGB_encoder.features[0](in_rgb)
             RGB_features1 = self.RGB_encoder.features[1](RGB_features0)
             RGB_features2 = self.RGB_encoder.features[2](RGB_features1)
@@ -197,7 +191,9 @@ class xr14(nn.Module):
             RGB_features8 = self.RGB_encoder.features[8](RGB_features7)
             RGB_features_sum += RGB_features8
             # bagian upsampling
-            print(RGB_features8.shape, RGB_features5.shape)
+            # up8 = self.up(RGB_features8)
+            # print(up8.shape)
+            # print(RGB_features5.shape)
             ss_f_3 = self.conv3_ss_f(
                 cat([self.up(RGB_features8), RGB_features5], dim=1))
             ss_f_2 = self.conv2_ss_f(
@@ -212,7 +208,6 @@ class xr14(nn.Module):
             # buat semantic cloud
             top_view_sc = self.gen_top_view_sc_ptcloud(
                 pt_cloud_xs[i], pt_cloud_zs[i], ss_f)
-            print('top view sc:', top_view_sc.shape)
             sdcs.append(top_view_sc)
             # bagian downsampling
             SC_features0 = self.SC_encoder.features[0](top_view_sc)
@@ -235,13 +230,8 @@ class xr14(nn.Module):
             self.gpu_device, dtype=hx.dtype)
         # predict delta wp
         out_wp = list()
-        # print("shape xy:", xy.shape)
-        # print("shape rp1:", rp1.shape)
-        # print("shape rp2:", rp2.shape)
-        # print("shape velo_in:", velo_in.shape)
         for _ in range(self.config.pred_len):
             ins = torch.cat([xy, rp1, rp2, velo_in], dim=1)
-            print(ins.shape)
             hx = self.gru(ins, hx)
             d_xy = self.pred_dwp(hx)
             xy = xy + d_xy
@@ -255,14 +245,7 @@ class xr14(nn.Module):
         control_pred = self.controller(hx)
         steering = control_pred[:, 0] * 2 - 1.  # convert from [0,1] to [-1,1]
         throttle = control_pred[:, 1] * self.config.max_throttle
-        # print(
-        #     torch.stack(segs_f).shape,
-        #     torch.tensor(pred_wp).shape,
-        #     torch.tensor(steering).shape,
-        #     torch.tensor(throttle).shape,
-        #     # sdcs.shape
-        #     torch.stack(sdcs).shape
-        # )
+
         return segs_f, pred_wp, steering, throttle, sdcs
 
     def swap_RGB2BGR(self, matrix):
@@ -277,16 +260,17 @@ class xr14(nn.Module):
 
         # buat array untuk nyimpan out gambar
         imgx2 = np.zeros((sdc.shape[2], sdc.shape[3], 3))
+        print(sdc.shape)
         # ambil tensor output segmentationnya
         pred_sdc = sdc[0]
         inx2 = np.argmax(pred_sdc, axis=0)
-        for cmap in self.config.SEG_CLASSES['colors']:
+        for cmap in self.config.SEG_CLASSES['colors'][1:]:
             cmap_id = self.config.SEG_CLASSES['colors'].index(cmap)
             imgx2[np.where(inx2 == cmap_id)] = cmap
 
         # GANTI ORDER BGR KE RGB, SWAP!
         imgx2 = self.swap_RGB2BGR(imgx2)
-        cv2.imshow("hehe", imgx2)
+        cv2.imshow("bev bro", imgx2.astype(np.uint8))
         cv2.waitKey(1)
 
     def show_seg(self, seg):
@@ -299,38 +283,60 @@ class xr14(nn.Module):
         inx = np.argmax(pred_seg, axis=0)
         for cmap in self.config.SEG_CLASSES['colors']:
             cmap_id = self.config.SEG_CLASSES['colors'].index(cmap)
-            # print(cmap_id)
             imgx[np.where(inx == cmap_id)] = cmap
 
         # GANTI ORDER BGR KE RGB, SWAP!
         imgx = self.swap_RGB2BGR(imgx)
-        cv2.imshow("hehehew", imgx)
+        cv2.imshow("seg bro", imgx.astype(np.uint8))
         cv2.waitKey(1)
 
-    def plot_pt(self, cloud_data_x, cloud_data_z):
-        # Convert to NumPy if needed
-        cloud_data_x_np = cloud_data_x.cpu().numpy(
-        ) if cloud_data_x.is_cuda else cloud_data_x.numpy()
-        cloud_data_z_np = cloud_data_z.cpu().numpy(
-        ) if cloud_data_z.is_cuda else cloud_data_z.numpy()
+    def show_seg_sdc(self, seg, sdc):
+        sdc = sdc.cpu().detach().numpy()
+        seg = seg.cpu().detach().numpy()
 
-        # Plot the data
-        fig = plt.figure()
-        ax = fig.add_subplot(111)  # No need for 'projection' argument in 2D
-        sc = ax.scatter(cloud_data_x_np, cloud_data_z_np, s=10,
-                        c=cloud_data_z_np, cmap='viridis')
+        # buat array untuk nyimpan out gambar
+        imgx2 = np.zeros((sdc.shape[2], sdc.shape[3], 3))
+        imgx = np.zeros((seg.shape[2], seg.shape[3], 3))
 
-        # Add a color bar
-        plt.colorbar(sc, label="Z values")
+        # print(sdc.shape)
+        # ambil tensor output segmentationnya
+        pred_sdc = sdc[0]
+        pred_seg = seg[0]
 
-        # Add labels and title
-        ax.set_xlabel("cloud_data_x")
-        ax.set_ylabel("cloud_data_z")
-        ax.set_title("Scatter Plot of cloud_data_x vs. cloud_data_z")
-        plt.grid(True)
+        inx2 = np.argmax(pred_sdc, axis=0)
+        inx = np.argmax(pred_seg, axis=0)
+        # if inx[0].dtype != np.uint8:
+        #     # Reshape inx to the desired shape (256, 384)
+        #     inx_reshaped = inx.reshape(256, 384)
 
-        # Show the plot
-        plt.show()
+        #     # Save the reshaped array to a text file
+        #     # Open the file in write mode ('w') to overwrite the file
+        #     with open('inx_file.txt', 'w') as file:
+        #         for row in inx_reshaped:
+        #             file.write(' '.join(map(str, row)) + '\n')
+        #     # Reshape inx to the desired shape (256, 384)
+        #     inx2_reshaped = inx2.reshape(256, 384)
+
+        #     # Save the reshaped array to a text file
+        #     # Open the file in write mode ('w') to overwrite the file
+        #     with open('inx2_file.txt', 'w') as file:
+        #         for row in inx2_reshaped:
+        #             file.write(' '.join(map(str, row)) + '\n')
+        # entah kenapa deteksi road jadi warna hitam
+        cmap = self.config.SEG_CLASSES['colors']
+        for i in range(len(self.config.SEG_CLASSES['colors'])):
+            cmap_id = self.config.SEG_CLASSES['colors'].index(cmap[i])
+            # print(cmap_id, "detected")
+            if i+1 < self.config.n_class:
+                imgx2[np.where(inx2 == cmap_id)] = cmap[i]
+                imgx[np.where(inx == cmap_id)] = cmap[i]
+
+        # GANTI ORDER BGR KE RGB, SWAP!
+        imgx2 = self.swap_RGB2BGR(imgx2)
+        imgx = self.swap_RGB2BGR(imgx)
+        cv2.imshow("seg bro", imgx.astype(np.uint8))
+        cv2.imshow("bev bro", imgx2.astype(np.uint8))
+        cv2.waitKey(1)
 
     def gen_top_view_sc_ptcloud(self, pt_cloud_x, pt_cloud_z, semseg):
         # proses awal
@@ -343,7 +349,7 @@ class xr14(nn.Module):
             (pt_cloud_x + self.cover_area) * (self.w-1) / (2*self.cover_area)).ravel()
         cloud_data_z = torch.round(
             (pt_cloud_z * (1-self.h) / self.cover_area) + (self.h-1)).ravel()
-        # self.plot_pt(pt_cloud_x, pt_cloud_z)
+
         # cari index interest
         bool_xz = torch.logical_and(torch.logical_and(
             cloud_data_x <= self.w-1, cloud_data_x >= 0), torch.logical_and(cloud_data_z <= self.h-1, cloud_data_z >= 0))
@@ -351,10 +357,10 @@ class xr14(nn.Module):
         idx_xz = bool_xz.nonzero().squeeze()
 
         # stack n x z cls dan plot
-        print(cloud_data_n.shape)
-        print(label_img.ravel().shape)
-        print(cloud_data_z.shape)
-        print(cloud_data_x.shape)
+        # print(cloud_data_n.shape)
+        # print(label_img.ravel().shape)
+        # print(cloud_data_z.shape)
+        # print(cloud_data_x.shape)
         coorx = torch.stack(
             [cloud_data_n, label_img.ravel(), cloud_data_z, cloud_data_x])
         # tensor harus long supaya bisa digunakan sebagai index
@@ -363,8 +369,7 @@ class xr14(nn.Module):
         top_view_sc = torch.zeros_like(semseg)
         top_view_sc[coor_clsn[0], coor_clsn[1], coor_clsn[2],
                     coor_clsn[3]] = 1.0  # format axis dari NCHW
-        self.show_sdc(top_view_sc)
-        self.show_seg(semseg)
+        self.show_seg_sdc(semseg, top_view_sc)
         return top_view_sc
 
     def mlp_pid_control(self, pwaypoints, angular_velo, psteer, pthrottle):
@@ -468,7 +473,8 @@ class xr14(nn.Module):
                 throttle = mlp_throttle
             elif (pid_throttle < self.config.min_act_thrt) and (mlp_throttle < self.config.min_act_thrt):
                 steering = 0.0 #dinetralkan
-                throttle = 0.0
+                throttle = 0.0536, 4, 6])
+torch.Size([8, 13
         elif self.config.ctrl_opt == "both_must":
             #opsi 2: vehicle jalan jika dan hanya jika kedua controller aktif. jika salah satu saja non aktif, maka vehicle berhenti
             steering = np.clip(self.config.cw_pid[0]*pid_steering + self.config.cw_mlp[0]*mlp_steering, -1.0, 1.0)

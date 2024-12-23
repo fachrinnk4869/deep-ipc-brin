@@ -142,7 +142,7 @@ def train(data_loader, model, config, writer, cur_epoch, device, optimizer, para
         gt_throttle = data['throttle'].to(device, dtype=torch.float)
 
         # forward pass
-        print(rgbs[0].shape)
+        # print(rgbs[0].shape)
         pred_segs, pred_wp, steering, throttle, _ = model(
             rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, gt_velocity)  # , seg_fronts[-1])
         # check_gt_seg(config, sdcs[-1])
@@ -364,10 +364,11 @@ def main():
 
     # SET GPU YANG AKTIF
     torch.backends.cudnn.benchmark = True
-    # device = torch.device("cuda:0")
-    device = torch.device("cpu")
-    # os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    # os.environ["CUDA_VISIBLE_DEVICES"]=config.gpu_id#visible_gpu #"0" "1" "0,1"
+    device = torch.device("cuda:0")
+    # device = torch.device("cpu")
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    # visible_gpu #"0" "1" "0,1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = config.gpu_id
 
     # IMPORT MODEL UNTUK DITRAIN
     print("IMPORT ARSITEKTUR DL DAN COMPILE")
@@ -402,12 +403,13 @@ def main():
     # print(len(dataloader_train))
 
     # cek retrain atau tidak
+    retrain = False
     if not os.path.exists(config.logdir+"/trainval_log.csv"):
         print('TRAIN from the beginning!!!!!!!!!!!!!!!!')
         os.makedirs(config.logdir, exist_ok=True)
         print('Created dir:', config.logdir)
         # optimizer lw
-        params_lw = [torch.FloatTensor([config.loss_weights[i]]).clone().detach(
+        params_lw = [torch.cuda.FloatTensor([config.loss_weights[i]]).clone().detach(
         ).requires_grad_(True) for i in range(len(config.loss_weights))]
         optima_lw = optim.SGD(params_lw, lr=config.lr)
         # set nilai awal
@@ -433,15 +435,16 @@ def main():
         # set optima lw baru
         latest_lw = [float(log_trainval['lw_ss'][-1:]), float(log_trainval['lw_wp'][-1:]), float(log_trainval['lw_str'][-1:]), float(
             log_trainval['lw_thr'][-1:])]
-        params_lw = [torch.FloatTensor([latest_lw[i]]).clone().detach(
+        params_lw = [torch.cuda.FloatTensor([latest_lw[i]]).clone().detach(
         ).requires_grad_(True) for i in range(len(latest_lw))]
         optima_lw = optim.SGD(params_lw, lr=float(log_trainval['lrate'][-1:]))
         # optima_lw.param_groups[0]['lr'] = optima.param_groups[0]['lr'] # lr disamakan
         # optima_lw.load_state_dict(torch.load(os.path.join(config.logdir, 'recent_optim_lw.pth')))
         # update direktori dan buat tempat penyimpanan baru
-        config.logdir += "/retrain"
-        os.makedirs(config.logdir, exist_ok=True)
-        print('Created new retrain dir:', config.logdir)
+        # config.logdir += "/retrain"
+        # os.makedirs(config.logdir, exist_ok=True)
+        # print('Created new retrain dir:', config.logdir)
+        retrain = True
 
     # copykan config file
     shutil.copyfile('config.py', config.logdir+'/config.py')
@@ -566,11 +569,19 @@ def main():
         # update stop counter
         log['stop_counter'].append(stop_count)
         # paste ke csv file
-        pd.DataFrame(log).to_csv(os.path.join(
-            config.logdir, 'trainval_log.csv'), index=False)
+        if not retrain:
+            pd.DataFrame(log).to_csv(os.path.join(
+                config.logdir, 'trainval_log.csv'), index=False)
+        else:
+            concat_log = pd.concat(
+                [log_trainval, pd.DataFrame(log)], ignore_index=True)
+            # paste ke csv file
+            concat_log.to_csv(os.path.join(
+                config.logdir, 'trainval_log.csv'), index=False)
 
         # kosongkan cuda chace
         # torch.empty_cache()
+        torch.cuda.empty_cache()
         epoch += 1
 
         # early stopping jika stop counter sudah mencapai 0 dan early stop true

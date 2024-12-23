@@ -1,5 +1,5 @@
 # pakai config.py yang dicopykan ke log
-from log.xr14_mix_mix_seq1.config import GlobalConfig
+from config import GlobalConfig
 from data import WHILL_Data, swap_RGB2BGR
 from model import get_model
 import pandas as pd
@@ -107,7 +107,7 @@ def show_sdc(sdc):
 
     # GANTI ORDER BGR KE RGB, SWAP!
     imgx2 = swap_RGB2BGR(imgx2)
-    cv2.imshow("hehe", imgx2)
+    cv2.imshow("hehe", imgx2.astype(np.uint8))
     cv2.waitKey(1)
 
 
@@ -126,7 +126,7 @@ def show_seg(seg):
 
     # GANTI ORDER BGR KE RGB, SWAP!
     # imgx = swap_RGB2BGR(imgx)
-    cv2.imshow("hehehew", imgx)
+    cv2.imshow("hehehew", imgx.astype(np.uint8))
     cv2.waitKey(1)
 
 
@@ -150,8 +150,8 @@ def save_out(config, seg, sdc, save_dir, condition, route, filename, metax):
     # GANTI ORDER BGR KE RGB, SWAP!
     imgx = swap_RGB2BGR(imgx)
     imgx2 = swap_RGB2BGR(imgx2)
-    cv2.imshow("hehehew", imgx)
-    cv2.waitKey(1)
+    # cv2.imshow("ouput segmentation", imgx.astype(np.uint8))
+    # cv2.waitKey(1)
     # save!
     save_dir_seg = save_dir+'/outputs/'+condition+'/'+route+'/pred_seg/'
     save_dir_sdc = save_dir+'/outputs/'+condition+'/'+route+'/sdc2/'
@@ -359,10 +359,10 @@ config = GlobalConfig()
 
 # SET GPU YANG AKTIF
 torch.backends.cudnn.benchmark = True
-device = torch.device("cpu")
-# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# visible_gpu #"0" "1" "0,1"
-# os.environ["CUDA_VISIBLE_DEVICES"] = config.gpu_id
+device = torch.device("cuda:0")
+# device = torch.device("cpu")
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = config.gpu_id
 
 # IMPORT MODEL dan load bobot
 print("IMPORT ARSITEKTUR DL DAN COMPILE")

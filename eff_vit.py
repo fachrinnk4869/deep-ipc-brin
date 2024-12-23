@@ -96,11 +96,11 @@ class PIDController(object):
         return out_control
 
 
-class vit_bb_ss(nn.Module):
+class eff_vit(nn.Module):
     # default input channel adalah 3 untuk RGB, 2 untuk DVS, 1 untuk LiDAR
     # n_fmap, n_class=[23,10], n_wp=5, in_channel_dim=[3,2], spatial_dim=[240, 320], gpu_device=None):
     def __init__(self, config, device):
-        super(vit_bb_ss, self).__init__()
+        super(eff_vit, self).__init__()
         self.config = config
         self.gpu_device = device
         # self.sigmoid = nn.Sigmoid()
@@ -111,29 +111,40 @@ class vit_bb_ss(nn.Module):
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         # self.RGB_encoder = models.efficientnet_b3(
         # pretrained=True)  # efficientnet_b4
-        self.image_size = self.config.res_resize[0]
-        self.RGB_encoder = models.vit_b_16(pretrained=True,
-                                           progress=True, image_size=self.image_size)  # efficientnet_b4
-        # summary(self.RGB_encoder, input_size=(
-        #     3, 256, 256), device="cpu")
+        self.RGB_encoder = models.efficientnet_b3(
+            pretrained=True)  # efficientnet_b4
         # cara paling gampang untuk menghilangkan fc layer yang tidak diperlukan
         self.RGB_encoder.classifier = nn.Sequential()
         # cara paling gampang untuk menghilangkan fc layer yang tidak diperlukan
         self.RGB_encoder.avgpool = nn.Sequential()
-        # SS
-        # self.up = nn.Upsample(
+        self.image_size = self.config.res_resize[0]
+        self.VIT_encoder = models.vit_b_16(pretrained=True,
+                                           progress=True, image_size=self.image_size)  # efficientnet_b4
+        # summary(self.RGB_encoder, input_size=(
+        #     3, 256, 256), device="cpu")
         #     scale_factor=2, mode='bilinear', align_corners=True)
-
-        self.conv3_ss_f = ConvBlock(channel=[
-                                    config.n_decoder[4][-1], config.n_decoder[3][-1]])  # , up=True)
-        self.conv2_ss_f = ConvBlock(channel=[
-                                    config.n_decoder[3][-1], config.n_decoder[2][-1]])  # , up=True)
-        self.conv1_ss_f = ConvBlock(channel=[
-                                    config.n_decoder[2][-1], config.n_decoder[1][-1]])  # , up=True)
-        self.conv0_ss_f = ConvBlock(channel=[
-                                    config.n_decoder[1][-1], config.n_decoder[0][0]])  # , up=True)
-        self.final_ss_f = ConvBlock(
-            channel=[config.n_decoder[0][0], config.n_class], final=True)  # , up=False)
+        if self.config.model == 'xr14':
+            self.conv3_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[4][-1]+config.n_decoder[3][-1], config.n_decoder[3][-1]])  # , up=True)
+            self.conv2_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[3][-1]+config.n_decoder[2][-1], config.n_decoder[2][-1]])  # , up=True)
+            self.conv1_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[2][-1]+config.n_decoder[1][-1], config.n_decoder[1][-1]])  # , up=True)
+            self.conv0_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[1][-1]+config.n_decoder[0][-1], config.n_decoder[0][0]])  # , up=True)
+            self.final_ss_f = ConvBlock(
+                channel=[config.n_decoder[0][0], config.n_class], final=True)  # , up=False)
+        elif self.config.model == 'eff_vit':
+            self.conv3_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[4][-1], config.n_decoder[3][-1]])  # , up=True)
+            self.conv2_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[3][-1], config.n_decoder[2][-1]])  # , up=True)
+            self.conv1_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[2][-1], config.n_decoder[1][-1]])  # , up=True)
+            self.conv0_ss_f = ConvBlock(channel=[
+                                        config.n_decoder[1][-1], config.n_decoder[0][0]])  # , up=True)
+            self.final_ss_f = ConvBlock(
+                channel=[config.n_decoder[0][0], config.n_class], final=True)  # , up=False)
         self.up = nn.Upsample(
             scale_factor=2, mode='bilinear', align_corners=False)
 
@@ -188,19 +199,21 @@ class vit_bb_ss(nn.Module):
         self.class_token = nn.Parameter(torch.zeros(1, 1, self.hidden_dim))
 
     def process_input(self, x: torch.Tensor) -> torch.Tensor:
-        n, c, h, w = x.shape
-        p = self.patch_size
-        torch._assert(h == self.image_size,
-                      f"Wrong image height! Expected {self.image_size} but got {h}!")
-        torch._assert(w == self.image_size,
-                      f"Wrong image width! Expected {self.image_size} but got {w}!")
-        n_h = h // p
-        n_w = w // p
+        n, c, n_h, n_w = x.shape
+        # n, c, h, w = x.shape
+        # p = self.patch_size
+        # torch._assert(h == self.image_size,
+        #               f"Wrong image height! Expected {self.image_size} but got {h}!")
+        # torch._assert(w == self.image_size,
+        #               f"Wrong image width! Expected {self.image_size} but got {w}!")
+        # n_h = h // p
+        # n_w = w // p
         # print("n_h, n_w: ", n_h, n_w)
         # (n, c, h, w) -> (n, hidden_dim, n_h, n_w)
         x = nn.Conv2d(
-            in_channels=3, out_channels=self.hidden_dim, kernel_size=self.patch_size, stride=self.patch_size
+            in_channels=c, out_channels=self.hidden_dim, kernel_size=1
         ).to("cuda:0")(x)
+        # print("conv2d: ", x.shape)
         # (n, hidden_dim, n_h, n_w) -> (n, hidden_dim, (n_h * n_w))
         x = x.reshape(n, self.hidden_dim, n_h * n_w)
 
@@ -215,7 +228,7 @@ class vit_bb_ss(nn.Module):
     def postprocess_features(self, x: torch.Tensor) -> torch.Tensor:
         # Assuming output shape is [batch_size, num_patches, embedding_dim]
         height = width = int(x.shape[1] ** 0.5)  # Square grid assumed
-        reshaped_output = x.view(
+        reshaped_output = x.reshape(
             x.shape[0], height, width, self.hidden_dim)  # PyTorch
         # Change to [batch_size, embedding_dim, height, width]
         return reshaped_output.permute(0, 3, 1, 2)
@@ -234,17 +247,29 @@ class vit_bb_ss(nn.Module):
         for i in range(self.config.seq_len):  # loop semua input dalam buffer
             # in_rgb = self.rgb_normalizer(rgbs[i])
             in_rgb = rgbs[i]
-            RGB_features0 = self.process_input(in_rgb)
-            n = RGB_features0.shape[0]
+            # in_rgb = self.rgb_normalizer(rgbs[i])
+            in_rgb = rgbs[i]
+            RGB_features0 = self.RGB_encoder.features[0](in_rgb)
+            RGB_features1 = self.RGB_encoder.features[1](RGB_features0)
+            RGB_features2 = self.RGB_encoder.features[2](RGB_features1)
+            RGB_features3 = self.RGB_encoder.features[3](RGB_features2)
+            RGB_features4 = self.RGB_encoder.features[4](RGB_features3)
+            RGB_features5 = self.RGB_encoder.features[5](RGB_features4)
+            RGB_features6 = self.RGB_encoder.features[6](RGB_features5)
+            RGB_features7 = self.RGB_encoder.features[7](RGB_features6)
+            RGB_features8 = self.RGB_encoder.features[8](RGB_features7)
+            RGB_features8 = self.up(RGB_features8)
+            # print("input encoder: ", RGB_features8.shape)  # harusnya 1536 + 136
+            # VIT encoder
+            x = self.process_input(RGB_features8)
+            n = x.shape[0]
 
-        # Expand the class token to the full batch
+            # Expand the class token to the full batch
             batch_class_token = self.class_token.expand(n, -1, -1)
-            RGB_features0 = torch.cat(
-                [batch_class_token, RGB_features0], dim=1)
-            RGB_features0 = self.RGB_encoder.encoder(RGB_features0)
-            # print("output encoder: ", RGB_features0.shape)
+            x = torch.cat([batch_class_token, x], dim=1)
+            RGB_features0 = self.VIT_encoder.encoder(x)
             # ignore class token
-            RGB_features0 = RGB_features0[:, 1:, :]
+            RGB_features0 = RGB_features0[:, 1:]
             RGB_features0 = self.postprocess_features(RGB_features0)
             # print("input decoder: ", RGB_features0.shape)
             RGB_features_sum += RGB_features0
@@ -274,14 +299,15 @@ class vit_bb_ss(nn.Module):
             SC_features6 = self.SC_encoder.features[6](SC_features5)
             SC_features7 = self.SC_encoder.features[7](SC_features6)
             SC_features8 = self.SC_encoder.features[8](SC_features7)
-            SC_features8 = self.up(SC_features8)
+            if self.config.model == 'eff_vit':
+                SC_features8 = self.up(SC_features8)
             SC_features_sum += SC_features8
 
         # ------------------------------------------------------------------------------------------------
         # waypoint prediction
         # get hidden state dari gabungan kedua bottleneck
         # print("shape RGB_features_sum:", RGB_features_sum.shape,
-            #   "shape SC_features_sum:", SC_features_sum.shape)
+        #       "shape SC_features_sum:", SC_features_sum.shape)
         hx = self.necks_net(cat([RGB_features_sum, SC_features_sum], dim=1))
         # initial input car location ke GRU, selalu buat batch size x 2 (0,0) (xy)
         xy = torch.zeros(size=(hx.shape[0], 2)).to(
