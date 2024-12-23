@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>NoSuchKey</Code>
+  <Message>The specified key does not exist.</Message>
+  <RequestId>67590C471C212C3534779CD5</RequestId>
+  <HostId>openmmlab-share.oss-cn-hangzhou.aliyuncs.com</HostId>
+  <Key>mmsegmentation/v0.5/setr/setr_pup_512x512_160k_ade20k/setr_pup_512x512_160k_ade20k_20220125_214425-55b6af6e.pth</Key>
+  <EC>0026-00000001</EC>
+  <RecommendDoc>https://api.aliyun.com/troubleshoot?q=0026-00000001</RecommendDoc>
+</Error>
