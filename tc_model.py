@@ -1,6 +1,6 @@
 import unittest
 import torch
-from model import xr14
+from model import get_model
 from config import GlobalConfig as Config
 
 
@@ -8,11 +8,10 @@ class TestXR14(unittest.TestCase):
     def setUp(self):
         self.config = Config()
         self.device = torch.device('cpu')
-        self.model = xr14(self.config, self.device)
+        self.model = get_model(self.config, self.device)
         self.h, self.w = self.config.res_resize
 
     def test_init(self):
-        self.assertIsInstance(self.model, xr14)
         self.assertEqual(self.model.config, self.config)
         self.assertEqual(self.model.gpu_device, self.device)
 
