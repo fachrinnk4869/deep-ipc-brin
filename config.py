@@ -5,6 +5,8 @@ class GlobalConfig:
     ctrl_opt = 'one_of'  # one_of both_must pid_only mlp_only
     gpu_id = '0'
     model = 'xr14'
+    # model = 'vit_bb'
+    # model = 'eff_vit'
     logdir = 'log/'+model+'_mix_mix'
     init_stop_counter = 30
 
@@ -16,18 +18,18 @@ class GlobalConfig:
     data_rate = 4  # 1 detik ada berapa data?
 
     # parameter untuk MGN
-    MGN = True
+    MGN = False
     loss_weights = [1, 1, 1, 1]
     lw_alpha = 1.5
     bottleneck = [335, 675]  # cek dengan check_arch.py
 
     # Data
-    seq_len = 3  # jumlah input seq
+    seq_len = 1  # jumlah input seq
     pred_len = 3  # future waypoints predicted
     logdir = logdir+"_seq"+str(seq_len)  # update direktori name
 
     # root_dir = '/home/aisl/WHILL/ros-whill-robot/main/dataset'
-    root_dir = '/home/fachrikid/[sample_driving_data]/code/code_gather_data/dataset/datasetx/dataset_0'
+    root_dir = './dataset/dataset_0'
     train_dir = root_dir+'/train_routes'
     val_dir = root_dir+'/val_routes'
     test_dir = root_dir+'/test_routes'
@@ -46,7 +48,13 @@ class GlobalConfig:
     #     test_data.append(os.path.join(root_dir+'/test_routes', weather))
 
     crop_roi = [512, 1024]  # HxW
-    scale = 2  # buat resizinig diawal load data
+    scale = 1  # buat resizinig diawal load data
+    # res_resize = [256, 384]
+    # res_resize = [240, 320]
+    res_resize = [224, 224]
+    # res_resize = [256, 256]
+    # res_resize = [512, 768]
+    # res_resize = [256, 512]
 
     lr = 1e-4  # learning rate #pakai AdamW
     weight_decay = 1e-3
@@ -89,11 +97,11 @@ class GlobalConfig:
             70, 130, 180], [220, 20, 60],
             [255, 0, 0], [0, 0, 142], [0, 0, 70], [0, 60, 100],
             [0, 80, 100], [0, 0, 230], [119, 11, 32]],
-        'classes': ['None', 'road', 'sidewalk', 'building', 'wall',
-                            'fence', 'pole', 'traffic light', 'traffic sign',
-                            'vegetation', 'terrain', 'sky', 'person',
-                            'rider', 'car', 'truck', 'bus',
-                            'train', 'motorcycle', 'bicycle']
+        'classes': ['not_class', 'road', 'sidewalk', 'building', 'wall',
+                    'fence', 'pole', 'traffic light', 'traffic sign',
+                    'vegetation', 'terrain', 'sky', 'person',
+                    'rider', 'car', 'truck', 'bus',
+                    'train', 'motorcycle', 'bicycle']
     }
     n_class = len(SEG_CLASSES['colors'])
 
@@ -101,9 +109,11 @@ class GlobalConfig:
     n_fmap_b1 = [[32, 16], [24], [40], [80, 112],
                  [192, 320, 1280]]  # sama dengan b0
     n_fmap_b2 = [[32, 16], [24], [48], [88, 120], [208, 352, 1408]]
+    n_vit_b16 = [[32, 24], [32], [64], [88, 128], [208, 352, 768]]
     # lihat underdevelopment/efficientnet.py
     n_fmap_b3 = [[40, 24], [32], [48], [96, 136], [232, 384, 1536]]
     n_fmap_b4 = [[48, 24], [32], [56], [112, 160], [272, 448, 1792]]
+    n_decoder = n_vit_b16
     # jangan lupa untuk mengganti model torchvision di init model.py
 
     def __init__(self, **kwargs):
