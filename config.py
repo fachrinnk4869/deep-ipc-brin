@@ -4,9 +4,9 @@ import os
 class GlobalConfig:
     ctrl_opt = 'one_of'  # one_of both_must pid_only mlp_only
     gpu_id = '0'
-    # model = 'xr14'
+    model = 'xr14'
     # model = 'vit_bb'
-    model = 'eff_vit'
+    # model = 'eff_vit'
     logdir = 'log/'+model+'_mix_mix'
     init_stop_counter = 30
 
@@ -50,6 +50,7 @@ class GlobalConfig:
     crop_roi = [512, 1024]  # HxW
     scale = 1  # buat resizinig diawal load data
     # res_resize = [256, 384]
+    # res_resize = [240, 320]
     res_resize = [224, 224]
     # res_resize = [256, 256]
     # res_resize = [512, 768]
