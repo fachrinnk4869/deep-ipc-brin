@@ -10,7 +10,7 @@ class GlobalConfig:
     logdir = 'log/'+model+'_mix_mix'
     init_stop_counter = 30
 
-    batch_size = 8
+    batch_size = 16
     coverage_area = 24  # untuk top view SC, 24m kedepan, kiri, dan kanan
     rp1_close = 4  # ganti rp jika mendekati ...meter
     bearing_bias = 7.5  # dalam derajat, pastikan sama dengan yang ada di plot_wprp.py
@@ -21,15 +21,15 @@ class GlobalConfig:
     MGN = True
     loss_weights = [1, 1, 1, 1]
     lw_alpha = 1.5
-    bottleneck = [335, 675]  # cek dengan check_arch.py
+    bottleneck = [335, 554]  # cek dengan check_arch.py
 
     # Data
     seq_len = 1  # jumlah input seq
     pred_len = 3  # future waypoints predicted
     logdir = logdir+"_seq"+str(seq_len)  # update direktori name
 
-    # root_dir = '/home/aisl/WHILL/ros-whill-robot/main/dataset'
-    root_dir = './dataset/dataset_0'
+    # root_dir = './dataset/dataset_0'
+    root_dir = '/media/fachri/banyak/deep-ipc-brin/new_dataset'
     train_dir = root_dir+'/train_routes'
     val_dir = root_dir+'/val_routes'
     test_dir = root_dir+'/test_routes'

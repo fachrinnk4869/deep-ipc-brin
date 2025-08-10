@@ -4,3 +4,5 @@ __pycache__
 dataset
 *.pth
 new_dataset
+./*/log
+./*/__pycache__

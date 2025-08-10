@@ -366,7 +366,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = config.gpu_id
 
 # IMPORT MODEL dan load bobot
 print("IMPORT ARSITEKTUR DL DAN COMPILE")
-model = get_model(config, device).to(device, dtype=torch.float)
+model = skgeswin(config, device).to(device, dtype=torch.float)
 model.load_state_dict(torch.load(
     os.path.join(config.logdir, 'best_model.pth')))
 

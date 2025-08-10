@@ -372,7 +372,7 @@ def main():
 
     # IMPORT MODEL UNTUK DITRAIN
     print("IMPORT ARSITEKTUR DL DAN COMPILE")
-    model = get_model(config, device).to(device, dtype=torch.float)
+    model = skgeswin(config, device).to(device, dtype=torch.float)
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print('Total trainable parameters: ', params)

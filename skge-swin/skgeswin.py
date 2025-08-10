@@ -178,7 +178,7 @@ class skgeswin(nn.Module):
         sdcs = []
         for i in range(self.config.seq_len):  # loop semua input dalam buffer
             in_rgb = self.rgb_normalizer(rgbs[i])
-            print(in_rgb.shape)
+            # print(in_rgb.shape)
             RGB_features0 = self.RGB_encoder.features[0](in_rgb)
             RGB_features1 = self.RGB_encoder.features[1](RGB_features0)
             # print("RGB_features1", RGB_features1.shape)
@@ -275,7 +275,7 @@ class skgeswin(nn.Module):
 
         # buat array untuk nyimpan out gambar
         imgx2 = np.zeros((sdc.shape[2], sdc.shape[3], 3))
-        print(sdc.shape)
+        # print(sdc.shape)
         # ambil tensor output segmentationnya
         pred_sdc = sdc[0]
         inx2 = np.argmax(pred_sdc, axis=0)
