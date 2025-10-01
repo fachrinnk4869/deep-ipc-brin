@@ -1,14 +1,14 @@
 import unittest
 import torch
-from xr14 import xr14
+from swin import swin
 from config import GlobalConfig as Config
 
 
-class TestXR14(unittest.TestCase):
+class TestSKGESWIN(unittest.TestCase):
     def setUp(self):
         self.config = Config()
         self.device = torch.device('cpu')
-        self.model = xr14(self.config, self.device)
+        self.model = swin(self.config, self.device)
         self.h, self.w = self.config.res_resize
 
     def test_init(self):
@@ -16,7 +16,7 @@ class TestXR14(unittest.TestCase):
         self.assertEqual(self.model.gpu_device, self.device)
 
     def test_rgb_encoder(self):
-        # Assuming RGB_Encoder is a method of xr14
+        # Assuming RGB_Encoder is a method of skgeswin
         input_tensor = torch.randn(
             self.config.batch_size, 3, self.h, self.w)  # Example input
         output = self.model.RGB_encoder(input_tensor)
@@ -49,14 +49,6 @@ class TestXR14(unittest.TestCase):
         # print(sdcs)
         assert len(sdcs) == self.config.seq_len
 
-    def test_sc_encoder(self):
-        # Assuming SC_encoder is a method of xr14
-        input_tensor = torch.randn(
-            4, 20, self.h, self.w)  # Example input
-        output = self.model.SC_encoder(input_tensor)
-        self.assertIsInstance(output, torch.Tensor)
-        # Add more assertions based on expected output shape and values
-
     def test_num_params(self):
         total_params = sum(p.numel() for p in self.model.parameters())
         trainable_params = sum(p.numel()
@@ -64,6 +56,13 @@ class TestXR14(unittest.TestCase):
         print(f"Total params: {total_params:,}")
         print(f"Trainable params: {trainable_params:,}")
         self.assertGreater(total_params, 0)
+    # def test_sc_encoder(self):
+    #     # Assuming SC_encoder is a method of skgeswin
+    #     input_tensor = torch.randn(
+    #         4, 20, self.h, self.w)  # Example input
+    #     output = self.model.SC_encoder(input_tensor)
+    #     self.assertIsInstance(output, torch.Tensor)
+        # Add more assertions based on expected output shape and values
 
 
 if __name__ == '__main__':

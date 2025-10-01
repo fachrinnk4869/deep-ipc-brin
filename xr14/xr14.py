@@ -179,22 +179,22 @@ class xr14(nn.Module):
         sdcs = []
         for i in range(self.config.seq_len):  # loop semua input dalam buffer
             in_rgb = self.rgb_normalizer(rgbs[i])
-            print(in_rgb.shape)
+            # print(in_rgb.shape)
             RGB_features0 = self.RGB_encoder.features[0](in_rgb)
             RGB_features1 = self.RGB_encoder.features[1](RGB_features0)
-            print("RGB_features1", RGB_features1.shape)
+            # print("RGB_features1", RGB_features1.shape)
             RGB_features2 = self.RGB_encoder.features[2](RGB_features1)
-            print("RGB_features2", RGB_features2.shape)
+            # print("RGB_features2", RGB_features2.shape)
             RGB_features3 = self.RGB_encoder.features[3](RGB_features2)
-            print("RGB_features3", RGB_features3.shape)
+            # print("RGB_features3", RGB_features3.shape)
             RGB_features4 = self.RGB_encoder.features[4](RGB_features3)
             RGB_features5 = self.RGB_encoder.features[5](RGB_features4)
-            print("RGB_features5", RGB_features5.shape)
+            # print("RGB_features5", RGB_features5.shape)
             RGB_features6 = self.RGB_encoder.features[6](RGB_features5)
             RGB_features7 = self.RGB_encoder.features[7](RGB_features6)
             RGB_features8 = self.RGB_encoder.features[8](RGB_features7)
             RGB_features_sum += RGB_features8
-            print("RGB_features8", RGB_features8.shape)
+            # print("RGB_features8", RGB_features8.shape)
             # bagian upsampling
             # up8 = self.up(RGB_features8)
             # print(up8.shape)
@@ -209,7 +209,7 @@ class xr14(nn.Module):
                 cat([self.up(ss_f_1), RGB_features1], dim=1))
             ss_f = self.final_ss_f(self.up(ss_f_0))
             segs_f.append(ss_f)
-            print("ss_f", ss_f.shape)
+            # print("ss_f", ss_f.shape)
             # ------------------------------------------------------------------------------------------------
             # buat semantic cloud
             top_view_sc = self.gen_top_view_sc_ptcloud(
@@ -266,7 +266,7 @@ class xr14(nn.Module):
 
         # buat array untuk nyimpan out gambar
         imgx2 = np.zeros((sdc.shape[2], sdc.shape[3], 3))
-        print(sdc.shape)
+        # print(sdc.shape)
         # ambil tensor output segmentationnya
         pred_sdc = sdc[0]
         inx2 = np.argmax(pred_sdc, axis=0)
@@ -375,7 +375,7 @@ class xr14(nn.Module):
         top_view_sc = torch.zeros_like(semseg)
         top_view_sc[coor_clsn[0], coor_clsn[1], coor_clsn[2],
                     coor_clsn[3]] = 1.0  # format axis dari NCHW
-        self.show_seg_sdc(semseg, top_view_sc)
+        # self.show_seg_sdc(semseg, top_view_sc)
         return top_view_sc
 
     def mlp_pid_control(self, pwaypoints, angular_velo, psteer, pthrottle):

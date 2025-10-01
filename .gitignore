@@ -1,8 +1,9 @@
-log
+log*
 .vscode
 __pycache__
 dataset
 *.pth
-new_dataset
-./*/log
+new_dataset*
+./*/log*
 ./*/__pycache__
+.venv

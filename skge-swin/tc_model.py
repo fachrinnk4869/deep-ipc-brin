@@ -49,6 +49,14 @@ class TestSKGESWIN(unittest.TestCase):
         # print(sdcs)
         assert len(sdcs) == self.config.seq_len
 
+    def test_num_params(self):
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel()
+                               for p in self.model.parameters() if p.requires_grad)
+        print(f"Total params: {total_params:,}")
+        print(f"Trainable params: {trainable_params:,}")
+        self.assertGreater(total_params, 0)
+
     # def test_sc_encoder(self):
     #     # Assuming SC_encoder is a method of skgeswin
     #     input_tensor = torch.randn(

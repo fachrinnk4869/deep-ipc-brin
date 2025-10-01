@@ -4,13 +4,13 @@ import os
 class GlobalConfig:
     ctrl_opt = 'one_of'  # one_of both_must pid_only mlp_only
     gpu_id = '0'
-    model = 'xr14'
+    model = 'swin'  # skgeswin xr14
     # model = 'vit_bb'
     # model = 'eff_vit'
     logdir = 'log/'+model+'_mix_mix'
     init_stop_counter = 30
 
-    batch_size = 8
+    batch_size = 16
     coverage_area = 24  # untuk top view SC, 24m kedepan, kiri, dan kanan
     rp1_close = 4  # ganti rp jika mendekati ...meter
     bearing_bias = 7.5  # dalam derajat, pastikan sama dengan yang ada di plot_wprp.py
@@ -21,14 +21,14 @@ class GlobalConfig:
     MGN = True
     loss_weights = [1, 1, 1, 1]
     lw_alpha = 1.5
-    bottleneck = [335, 679]  # cek dengan check_arch.py
+    bottleneck = [335, 554]  # cek dengan check_arch.py
 
     # Data
     seq_len = 1  # jumlah input seq
     pred_len = 3  # future waypoints predicted
     logdir = logdir+"_seq"+str(seq_len)  # update direktori name
 
-    # root_dir = '/home/aisl/WHILL/ros-whill-robot/main/dataset'
+    # root_dir = './dataset/dataset_0'
     root_dir = '/media/fachri/banyak/deep-ipc-brin/new_dataset'
     train_dir = root_dir+'/train_routes'
     val_dir = root_dir+'/val_routes'
@@ -51,8 +51,8 @@ class GlobalConfig:
     scale = 1  # buat resizinig diawal load data
     # res_resize = [256, 384]
     # res_resize = [240, 320]
-    res_resize = [224, 224]
-    # res_resize = [256, 256]
+    # res_resize = [224, 224]
+    res_resize = [256, 256]
     # res_resize = [512, 768]
     # res_resize = [256, 512]
 
@@ -105,15 +105,8 @@ class GlobalConfig:
     }
     n_class = len(SEG_CLASSES['colors'])
 
-    n_fmap_b0 = [[32, 16], [24], [40], [80, 112], [192, 320, 1280]]
-    n_fmap_b1 = [[32, 16], [24], [40], [80, 112],
-                 [192, 320, 1280]]  # sama dengan b0
-    n_fmap_b2 = [[32, 16], [24], [48], [88, 120], [208, 352, 1408]]
-    n_vit_b16 = [[32, 24], [32], [64], [88, 128], [208, 352, 768]]
-    # lihat underdevelopment/efficientnet.py
+    n_fmap_b1 = [[96, 16], [24], [40], [80, 112], [192, 320, 768]]
     n_fmap_b3 = [[40, 24], [32], [48], [96, 136], [232, 384, 1536]]
-    n_fmap_b4 = [[48, 24], [32], [56], [112, 160], [272, 448, 1792]]
-    n_decoder = n_vit_b16
     # jangan lupa untuk mengganti model torchvision di init model.py
 
     def __init__(self, **kwargs):

@@ -94,11 +94,11 @@ class PIDController(object):
         return out_control
 
 
-class skgeswin(nn.Module):
+class swin(nn.Module):
     # default input channel adalah 3 untuk RGB, 2 untuk DVS, 1 untuk LiDAR
     # n_fmap, n_class=[23,10], n_wp=5, in_channel_dim=[3,2], spatial_dim=[240, 320], gpu_device=None):
     def __init__(self, config, device):
-        super(skgeswin, self).__init__()
+        super(swin, self).__init__()
         self.config = config
         self.gpu_device = device
         # self.sigmoid = nn.Sigmoid()
@@ -167,6 +167,7 @@ class skgeswin(nn.Module):
             nn.Linear(config.n_fmap_b3[3][-1], 2),  # str dan thrt
             nn.ReLU()
         )
+        self.downsample = nn.AvgPool2d(kernel_size=2, stride=2)
 
     # , gt_ss):
     def forward(self, rgbs, pt_cloud_xs, pt_cloud_zs, rp1, rp2, velo_in):
@@ -223,23 +224,18 @@ class skgeswin(nn.Module):
             SC_features5 = self.SC_encoder.features[5](SC_features4)
             SC_features6 = self.SC_encoder.features[6](SC_features5)
             SC_features7 = self.SC_encoder.features[7](SC_features6)
+            SC_features7 = self.SC_encoder.norm(SC_features7)
+        # print("SC_features7", SC_features7.shape)
+            SC_features8 = SC_features7.permute(0, 3, 1, 2)
 
-            global_features1 = SC_features1
-            global_features1 = self.norm1(global_features1)
-            global_features1 = global_features1.permute(0, 3, 1, 2)
-
-            global_features2 = SC_features7
-            global_features2 = self.SC_encoder.norm(global_features2)
-            global_features2 = global_features2.permute(0, 3, 1, 2)
-            global_features_resized1_ = F.interpolate(
-                global_features1, size=global_features2.shape[2:], mode='bilinear', align_corners=False)
-            SC_features8 = torch.cat(
-                [global_features_resized1_, global_features2], dim=1)
+            # SC_features8 = self.downsample(SC_features7)
             # SC_features_sum += SC_features8
 
         # ------------------------------------------------------------------------------------------------
         # waypoint prediction
         # get hidden state dari gabungan kedua bottleneck
+        # print("RGB_features8", RGB_features8.shape)
+        # print("SC_features8", SC_features8.shape)
         hx = self.necks_net(cat([RGB_features8, SC_features8], dim=1))
         # initial input car location ke GRU, selalu buat batch size x 2 (0,0) (xy)
         xy = torch.zeros(size=(hx.shape[0], 2)).to(
@@ -385,7 +381,7 @@ class skgeswin(nn.Module):
         top_view_sc = torch.zeros_like(semseg)
         top_view_sc[coor_clsn[0], coor_clsn[1], coor_clsn[2],
                     coor_clsn[3]] = 1.0  # format axis dari NCHW
-        self.show_seg_sdc(semseg, top_view_sc)
+        # self.show_seg_sdc(semseg, top_view_sc)
         return top_view_sc
 
     def mlp_pid_control(self, pwaypoints, angular_velo, psteer, pthrottle):
